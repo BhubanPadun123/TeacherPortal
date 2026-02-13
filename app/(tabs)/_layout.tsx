@@ -5,6 +5,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -24,10 +25,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="login"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Login',
+          tabBarIcon: ({ color }) => <AntDesign name="user" size={28} color={color} />,
         }}
       />
     </Tabs>

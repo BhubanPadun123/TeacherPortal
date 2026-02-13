@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "teacher_portal",
-    "slug": "teacher_portal",
+    "name": "EduCare Teacher Portal",
+    "slug": "eduCare-teacher-portal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -19,7 +19,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.padun.eduCareteacherportal",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -30,7 +32,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -43,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "04161969-0a00-4142-b7d7-1cae459ba01b"
+      }
     }
   }
 }
