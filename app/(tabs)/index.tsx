@@ -1,8 +1,9 @@
 import { getPersistedAuth } from '@/utils/storage';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -21,6 +22,54 @@ const QUICK_ACTIONS = [
   { key: 'attendanceRange', label: 'Range Wise Attendance Reports', href: '/reports/range' },
   { key: 'attendanceYear', label: 'Full Year Attendance Reports', href: '/reports/year' },
 ]
+
+// Animated class card component for individual cards
+function ClassCard({ c, idx, onOpen }: { c: any; idx: number; onOpen: () => void }) {
+  const scale = useRef(new Animated.Value(0.96)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 300, delay: idx * 60, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 8, useNativeDriver: true }),
+    ]).start();
+  }, [idx, opacity, scale]);
+
+  const onPressIn = () => {
+    Animated.spring(scale, { toValue: 0.975, friction: 7, useNativeDriver: true }).start();
+  };
+  const onPressOut = () => {
+    Animated.spring(scale, { toValue: 1, friction: 7, useNativeDriver: true }).start();
+  };
+
+  const colors = [
+    `rgba(${40 + (idx * 12) % 120}, ${120 + (idx * 10) % 80}, ${200 - (idx * 6) % 120}, 0.16)`,
+    `rgba(${30 + (idx * 10) % 120}, ${90 + (idx * 8) % 100}, ${180 - (idx * 4) % 120}, 0.06)`,
+  ];
+
+  return (
+    <Animated.View style={[styles.cardWrap, { transform: [{ scale }], opacity }]}> 
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={onOpen}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+      >
+        <LinearGradient colors={colors} style={styles.classCardGradient}>
+          <View style={styles.classCardContent}>
+            <ThemedText type="defaultSemiBold" style={styles.classTitle}>{c?.class_name}</ThemedText>
+          </View>
+          <View style={styles.cardFooterRow}>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity style={styles.openButton} onPress={onOpen}>
+              <ThemedText type="defaultSemiBold" style={styles.openText}>Open</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 
 
@@ -89,7 +138,7 @@ export default function HomeScreen() {
 
       <ThemedView style={styles.greetingCard}>
         <ThemedText type="subtitle">Good morning,</ThemedText>
-        <ThemedText type="title">{displayName || 'Teacher'}</ThemedText>
+        <ThemedText type="title" style={styles.displayName}>{displayName || 'Teacher'}</ThemedText>
         <ThemedText style={styles.smallText}>Here's your day at a glance</ThemedText>
       </ThemedView>
 
@@ -116,42 +165,12 @@ export default function HomeScreen() {
           {getClassesState.isLoading ? (
             <Loader message="Loading classes…" />
           ) : (
-            (getClassesState.data?.list ?? []).map((c: any) => (
-              <View style={styles.cardWrap} key={(c.id ?? '').toString()}>
-                <TouchableOpacity
-                  style={styles.classCard}
-                  activeOpacity={0.9}
-                  onPress={() => router.push(("/class-students/" + c.id) as any)}
-                >
-                  <ThemedText type="defaultSemiBold" style={{
-                    textAlign: "center",
-                    fontSize: 24,
-                    color: "#aa8c8cff",
-                    padding: 4
-                  }}>{c?.class_name}</ThemedText>
-                  <TouchableOpacity style={styles.openButton} onPress={() => router.push(("/class-students/" + c.id) as any)}>
-                    <ThemedText type="defaultSemiBold" >Open</ThemedText>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              </View>
+            (getClassesState.data?.list ?? []).map((c: any, idx: number) => (
+              <ClassCard key={(c.id ?? '').toString()} c={c} idx={idx} onOpen={() => router.push(("/class-students/" + c.id) as any)} />
             ))
           )}
         </View>
       </ThemedView>
-
-      {/* <ThemedView style={styles.section}>
-        <ThemedText type="subtitle">Recent announcements</ThemedText>
-        <ThemedView style={styles.announcementCard}>
-          <ThemedText type="defaultSemiBold">Welcome back — schedule updates</ThemedText>
-          <ThemedText style={styles.smallText}>Check the calendar for updated school events.</ThemedText>
-          <Link href={'/announcements' as any}>
-            <Link.Trigger>
-              <ThemedText type="link">View all</ThemedText>
-            </Link.Trigger>
-          </Link>
-        </ThemedView>
-      </ThemedView> */}
-
     </ParallaxScrollView>
   );
 }
@@ -173,8 +192,35 @@ const styles = StyleSheet.create({
   },
   greetingCard: {
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     marginBottom: 12,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(10,132,255,0.04)'
+  },
+  greetingLeft: {
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+  },
+  greetingRight: {
+    flex: 1,
+  },
+  greetingName: {
+    marginTop: 4,
+    marginBottom: 4,
+    fontSize: 20,
+  },
+  displayName: {
+    marginTop: 2,
+    fontSize: 20,
   },
   smallText: {
     color: '#666',
@@ -193,40 +239,175 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   actionCard: {
-    width: 140,
-    padding: 12,
-    borderRadius: 10,
+    minWidth: 160,
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     marginRight: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  actionLabel: {
+    fontSize: 14,
+  },
+  actionIcon: {
+    marginTop: 8,
+    color: '#888',
   },
   openButton: {
-    marginTop: 8,
+    marginTop: 4,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: 'rgba(10,132,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  openText: {
+    color: '#0666d6'
   },
   classesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
     marginTop: 8,
     justifyContent: 'space-between',
   },
   cardWrap: {
-    width: '48%',
-    padding: 2,
-    backgroundColor: "pink",
-    borderRadius: 10
+    width: '100%',
+    padding: 6,
+    borderRadius: 12,
   },
   classCard: {
     width: '100%',
-    padding: 1,
-    marginBottom: 2
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    justifyContent: 'space-between',
+    minHeight: 120,
+    alignItems: 'center',
+  },
+  classCardGradient: {
+    width: '100%',
+    padding: 12,
+    borderRadius: 12,
+    minHeight: 120,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  classCardHeader: {
+    marginBottom: 8,
+  },
+  classCardContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  classTitle: {
+    fontSize: 18,
+    textAlign: 'center'
+  },
+  classCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  cardMeta: {
+    color: '#666',
+    fontSize: 12
+  },
+  cardFooterRow: {
+    width: '100%',
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end'
+  },
+  todaySection: {
+    paddingVertical: 8,
+  },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: 8,
+  },
+  clockContainer: {
+    minWidth: 120,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+  },
+  timeText: {
+    fontSize: 28,
+    fontWeight: '700'
+  },
+  dateText: {
+    color: '#666',
+    marginTop: 4,
+  },
+  miniCalendar: {
+    flex: 1,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    elevation: 2,
+  },
+  calHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  calNav: {
+    fontSize: 18,
+    color: '#666',
+    paddingHorizontal: 6,
+  },
+  calGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calDayHeader: {
+    width: `${100/7}%`,
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  calDay: {
+    width: `${100/7}%`,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  calDayText: {
+    color: '#333'
+  },
+  calToday: {
+    backgroundColor: 'rgba(10,132,255,0.14)',
+    borderRadius: 6,
+  },
+  calTodayText: {
+    color: '#0666d6',
+    fontWeight: '700'
   },
   upcomingCard: {
     padding: 12,

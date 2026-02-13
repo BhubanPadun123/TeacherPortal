@@ -1,6 +1,7 @@
 import { useAppSelector } from '@/store/hooks';
 import { useLazyGetClassesQuery } from '@/store/services/api';
 import { getPersistedAuth } from '@/utils/storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -61,7 +62,7 @@ export default function AttendanceScreen() {
           raw = await getPersistedAuth();
           if (!raw) return;
           const parsed = JSON.parse(raw);
-          userData = parsed.user_data ?? parsed.user ?? null;
+          userData = parsed
         }
         if (!mounted || !userData) return;
         const meta = userData.meta_data ?? userData.meta ?? null;
@@ -89,21 +90,28 @@ export default function AttendanceScreen() {
         data={(classesResponse?.list ?? []) as any}
         keyExtractor={(item) => String(item.id)}
         numColumns={2}
-        columnWrapperStyle={styles.row}
-        renderItem={({ item }) => (
+        columnWrapperStyle={styles.columnWrapper}
+        renderItem={({ item, index }) => (
           <View style={styles.cardWrap}>
             <TouchableOpacity
-              style={styles.classCard}
-              activeOpacity={0.9}
-              onPress={() => {
-                router.push(("/class-students/" + item.id) as any);
-              }}
+              activeOpacity={0.92}
+              onPress={() => router.push(("/class-students/" + item.id) as any)}
             >
-              <ThemedText type="defaultSemiBold" style={{
-                textAlign:"center",
-                fontSize:24
-              }}>{item.class_name ?? item.name}</ThemedText>
-              {/* <ThemedText style={styles.smallText}>{(item.meta_data?.subjects?.length ?? 0) > 0 ? `${item.meta_data.subjects.length} subjects` : ''}</ThemedText> */}
+              <LinearGradient
+                colors={["rgba(10,132,255,0.08)", "rgba(10,132,255,0.02)"]}
+                style={styles.classCardGradient}
+              >
+                <ThemedView style={styles.cardInnerRow}>
+                  <ThemedView style={styles.cardTextWrap}>
+                    <ThemedText type="defaultSemiBold" style={styles.classTitle}>{item.class_name ?? item.name}</ThemedText>
+                    <ThemedText style={styles.smallText}>{(item.meta_data?.subjects?.length ?? 0) > 0 ? `${item.meta_data.subjects.length} subjects` : ''}</ThemedText>
+                  </ThemedView>
+
+                  <TouchableOpacity style={styles.openButton} onPress={() => router.push(("/class-students/" + item.id) as any)}>
+                    <ThemedText style={styles.openText}>Open</ThemedText>
+                  </TouchableOpacity>
+                </ThemedView>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         )}
@@ -126,11 +134,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.03)'
+    alignItems: 'center'
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 12,
+    alignItems: 'stretch'
   },
   classesGrid: {
     flexDirection: 'row',
@@ -138,12 +148,41 @@ const styles = StyleSheet.create({
     marginTop: 8,
     justifyContent: 'space-between',
   },
-  cardWrap: { width: '48%', padding: 8 },
+  cardWrap: { width: '48%', padding: 6, alignItems: 'stretch' },
   classCard: {
-    padding: 12,
+    padding: 10,
     borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-    marginBottom: 8,
+    backgroundColor: 'transparent',
+    marginBottom: 0,
+    width: '100%'
+  },
+  classCardGradient: {
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 96,
+    justifyContent: 'center'
+  },
+  cardInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  cardTextWrap: {
+    flex: 1,
+    paddingRight: 8
+  },
+  classTitle: {
+    fontSize: 18
+  },
+  openButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)'
+  },
+  openText: {
+    color: '#0666d6',
+    fontWeight: '700'
   },
   smallText: {
     color: '#666',

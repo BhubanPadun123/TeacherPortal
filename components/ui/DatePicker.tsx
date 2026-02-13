@@ -1,12 +1,12 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";
 import {
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type Props = {
@@ -40,14 +40,17 @@ export default function SingleDatePicker({
       >
         <Text style={styles.dateText}>{formatDate(value)}</Text>
       </TouchableOpacity>
-
-      <Modal visible={visible} transparent animationType="slide">
-        <View style={styles.overlay}>
+      {/* On Android the native picker/dialog is preferred and should not be wrapped
+          in a React Native Modal (that can cause z-index/overlay interaction issues).
+          On iOS we keep the Modal wrapper so the spinner/display sits above content. */}
+      {Platform.OS === 'android' ? (
+        visible && (
           <DateTimePicker
             value={tempDate}
             mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
+            display="default"
             onChange={(event, selectedDate) => {
+              // Android shows a native dialog; close after selection or cancel
               if (selectedDate) {
                 setTempDate(selectedDate)
                 onChange(selectedDate)
@@ -55,8 +58,33 @@ export default function SingleDatePicker({
               setVisible(false)
             }}
           />
-        </View>
-      </Modal>
+        )
+      ) : (
+        <Modal visible={visible} transparent animationType="slide">
+          <View style={styles.overlay}>
+            <View style={styles.modalBox}>
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display="spinner"
+                onChange={(event, selectedDate) => {
+                  if (selectedDate) {
+                    setTempDate(selectedDate)
+                  }
+                }}
+              />
+              <View style={styles.btnRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setVisible(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.okBtn} onPress={() => { onChange(tempDate); setVisible(false); }}>
+                  <Text style={styles.okText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

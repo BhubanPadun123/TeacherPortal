@@ -2,7 +2,7 @@ import Loader from '@/components/ui/loader';
 import { attandanceDataType, attendanceCollectionDataType } from "@/utils/types";
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Platform, StyleSheet, TouchableNativeFeedback } from 'react-native';
+import { FlatList, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -11,6 +11,8 @@ import {
     useTakeClassAttandanceMutation
 } from "@/store/services/api";
 import { useFocusEffect, useRouter } from 'expo-router';
+
+import { getPersistedAuth } from '@/utils/storage';
 import * as SecureStore from 'expo-secure-store';
 
 
@@ -40,13 +42,13 @@ export default function ClassStudentsScreen() {
                 router.back()
             }
             if(takeAttandanceState.isError){
+                console.log(takeAttandanceState.error)
                 alert("Error while update the class attandance,Please try after sometime!")
             }
         }
         clearData()
     }, [takeAttandanceState.status])
 
-    console.log(takeAttandanceState)
 
     useFocusEffect(
         useCallback(() => {
@@ -54,24 +56,30 @@ export default function ClassStudentsScreen() {
             (async () => {
                 try {
                     let raw: any = null;
+                    // use centralized persisted-auth helper (handles both web and native)
+                    raw = await getPersistedAuth();
+
+                    // read stored attendance history from platform storage
+                    const today = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()}`
                     if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-                        raw = (globalThis as any).localStorage.getItem('auth')
-                        const today = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()}`
-                        const collectionHistory = localStorage.getItem(today)
+                        const collectionHistory = (globalThis as any).localStorage.getItem("attandance")
+                        if (collectionHistory && typeof collectionHistory === 'string') {
+                            try {
+                                const parse = JSON.parse(collectionHistory)
+                                if (parse?.class_id && Number(classId) === Number(parse.class_id)) {
+                                    if (Array.isArray(parse[today]) && parse[today].length > 0) setCollection([...parse[today]])
+                                }
+                            } catch (e) { /* ignore parse errors */ }
+                        }
                     } else {
-                        raw = await SecureStore.getItemAsync('auth');
-                        const today = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()}`
                         const collectionHistory: any = await SecureStore.getItemAsync("attandance")
                         if (collectionHistory && typeof (collectionHistory) === "string") {
                             const parse = JSON.parse(collectionHistory)
-                            if (parse.hasOwnProperty("class_id")) {
+                            if (parse && parse.class_id) {
                                 const class_id = parse.class_id
                                 if (class_id && Number(classId) === Number(class_id)) {
-                                    if (Object.keys(parse)[0] === today) {
-                                        const historyData: attendanceCollectionDataType[] = parse[today]
-                                        if (historyData.length > 0) {
-                                            setCollection([...historyData])
-                                        }
+                                    if (Array.isArray(parse[today]) && parse[today].length > 0) {
+                                        setCollection([...parse[today]])
                                     }
                                 }
                             }
@@ -83,10 +91,10 @@ export default function ClassStudentsScreen() {
                         return;
                     }
 
-                    const parsed = JSON.parse(raw);
-                    if (typeof parsed === 'object') {
+                    const parsed = raw ? JSON.parse(raw) : null;
+                    if (parsed && typeof parsed === 'object') {
                         // backend may return user under `user` or `user_data`
-                        const user_data = parsed.user_data ?? parsed.user ?? null;
+                        const user_data = parsed
                         if (user_data) {
                             // set local state for display/use elsewhere
                             const name = `${user_data.firstname ?? user_data.first_name ?? ''} ${user_data.lastname ?? user_data.last_name ?? ''}`.trim();
@@ -173,6 +181,23 @@ export default function ClassStudentsScreen() {
             setCollection([...updated])
         }
     }
+    async function removeAttendance(roll_no: string | number) {
+        const updated = collection.filter(i => i.roll_no !== roll_no)
+        const today = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()}`
+        await SecureStore.setItemAsync("attandance", JSON.stringify({
+            [today]: updated,
+            ["class_id"]: classId
+        }))
+        setCollection([...updated])
+    }
+
+    async function toggleAttendance(roll_no: string | number) {
+        const r = Number(roll_no)
+        const exists = collection.find(i => i.roll_no === r)
+        if (!exists) return updatePresent({ roll_no: r, status: 'yes' })
+        if (exists.status === 'yes') return updateAbsent({ roll_no: r, status: 'no' })
+        if (exists.status === 'no') return removeAttendance(r)
+    }
     function handleSubmitAttendance() {
         if (collection.length === 0) {
             alert("Please mark attendance first");
@@ -197,8 +222,8 @@ export default function ClassStudentsScreen() {
                     total_absent: total_absent,
                     total_present: total_present,
                     data: collection,
-                    present_percentage: (total_present / total) * 100,
-                    absent_percentage: (total_absent / total) * 100
+                    present_percentage: Math.trunc((total_present / total) * 100),
+                    absent_percentage: Math.trunc((total_absent / total) * 100)
                 }
             }
             takeAttandance(data)
@@ -230,75 +255,43 @@ export default function ClassStudentsScreen() {
                 }
                 renderItem={({ item }) => {
                     const isPresent = collection.find(i => i.roll_no === item.roll_no)
+                    const initials = (item.name || '').split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase();
+                    const status = isPresent?.status
+                    const actionLabel = status === 'yes' ? 'Present' : status === 'no' ? 'Absent' : 'Mark'
+                    const actionColor = status === 'yes' ? '#2e7d32' : status === 'no' ? '#c62828' : '#757575'
+
                     return (
                         <ThemedView
                             style={{
                                 ...styles.row,
                                 backgroundColor:
-                                    isPresent?.status === "yes"
+                                    status === "yes"
                                         ? "#e8f5e9"
-                                        : isPresent?.status === "no"
+                                        : status === "no"
                                             ? "#ffebee"
                                             : "#f5f5f5"
                             }}
                         >
-                            <ThemedView style={styles.subRow}>
-                                <ThemedText type="defaultSemiBold">
-                                    Roll-No : {item.roll_no}
-                                </ThemedText>
+                            <ThemedView style={styles.avatarWrap}>
+                                <ThemedView style={[styles.avatar, { backgroundColor: '#e0e7ff' }]}>
+                                    <ThemedText type="defaultSemiBold">{initials}</ThemedText>
+                                </ThemedView>
+                            </ThemedView>
 
-                                <ThemedText
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
-                                    style={{ flex: 1, marginLeft: 10 }}
-                                    type="defaultSemiBold"
-                                >
-                                    Name: {item.name}
+                            <ThemedView style={styles.leftColumn}>
+                                <ThemedText type="defaultSemiBold" style={styles.nameText} numberOfLines={2}>
+                                    {item.name}
                                 </ThemedText>
+                                <ThemedText style={styles.rollText}>Roll No: {item.roll_no}</ThemedText>
                             </ThemedView>
 
                             <ThemedView style={styles.actionContainer}>
-                                <TouchableNativeFeedback
-                                    onPress={() =>
-                                        updatePresent({ roll_no: item.roll_no, status: "yes" })
-                                    }
-                                    disabled={isPresent?.status === "yes"}
-                                >
-                                    <ThemedView style={styles.buttonWrapper}>
-                                        <ThemedView style={styles.presentBtn}>
-                                            <ThemedText style={styles.btnText}>Present</ThemedText>
-                                        </ThemedView>
+                                <TouchableOpacity onPress={() => toggleAttendance(item.roll_no)} activeOpacity={0.8}>
+                                    <ThemedView style={[styles.actionBtn, { backgroundColor: actionColor }]}> 
+                                        <ThemedText style={styles.btnText}>{actionLabel}</ThemedText>
                                     </ThemedView>
-                                </TouchableNativeFeedback>
-
-                                <TouchableNativeFeedback
-                                    onPress={() =>
-                                        updateAbsent({ roll_no: item.roll_no, status: "no" })
-                                    }
-                                    disabled={isPresent?.status === "no"}
-                                >
-                                    <ThemedView style={styles.buttonWrapper}>
-                                        <ThemedView style={styles.absentBtn}>
-                                            <ThemedText style={styles.btnText}>Absent</ThemedText>
-                                        </ThemedView>
-                                    </ThemedView>
-                                </TouchableNativeFeedback>
+                                </TouchableOpacity>
                             </ThemedView>
-
-                            {isPresent && (
-                                <ThemedText
-                                    style={{
-                                        color: isPresent.status === "yes" ? "green" : "red",
-                                        backgroundColor: "white",
-                                        padding: 6,
-                                        borderRadius: 6,
-                                        textAlign: "center",
-                                        fontWeight: "600"
-                                    }}
-                                >
-                                    {isPresent.status === "yes" ? "PRESENT" : "ABSENT"}
-                                </ThemedText>
-                            )}
                         </ThemedView>
                     )
                 }}
@@ -306,13 +299,13 @@ export default function ClassStudentsScreen() {
 
             {/* 🔥 Sticky Footer Button */}
             <ThemedView style={styles.footer}>
-                <TouchableNativeFeedback onPress={handleSubmitAttendance}>
+                <TouchableOpacity onPress={handleSubmitAttendance} activeOpacity={0.85}>
                     <ThemedView style={styles.submitBtn}>
                         <ThemedText style={styles.submitText}>
                             Submit Attendance
                         </ThemedText>
                     </ThemedView>
-                </TouchableNativeFeedback>
+                </TouchableOpacity>
             </ThemedView>
             {
                 (
@@ -342,28 +335,41 @@ const styles = StyleSheet.create({
     },
 
     row: {
-        flexDirection: "column",
-        padding: 14,
+        flexDirection: "row",
+        padding: 12,
         borderRadius: 12,
         marginBottom: 12,
         backgroundColor: "rgba(0,0,0,0.04)",
         elevation: 2,
         gap: 12,
+        alignItems: 'center'
     },
 
-    subRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        width: "100%",
-        gap: 4,
-        backgroundColor: ""
+    leftColumn: {
+        flex: 1,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        paddingRight: 12
     },
-
+    avatarWrap: {
+        width: 56,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8
+    },
+    avatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
     nameText: {
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '700'
     },
+
+    
 
     rollText: {
         fontSize: 14,
@@ -371,11 +377,11 @@ const styles = StyleSheet.create({
     },
 
     actionContainer: {
-        flexDirection: "row",
-        gap: 12,
+        flexDirection: "column",
+        gap: 8,
         justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: ""
+        alignItems: "flex-end",
+        marginLeft: 12
     },
 
     buttonWrapper: {
@@ -402,6 +408,23 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontWeight: "600",
         fontSize: 14,
+    },
+    statusBadge: {
+        color: '#fff',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        fontWeight: '700',
+        overflow: 'hidden',
+        marginLeft: 12
+    },
+    actionBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 10,
+        minWidth: 80,
+        alignItems: 'center',
+        justifyContent: 'center'
     },
     footer: {
         position: "absolute",

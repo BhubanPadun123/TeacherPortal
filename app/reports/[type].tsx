@@ -474,56 +474,27 @@ export default function ClassAttendanceReport() {
                 (type === "range" || type === "year") && (
                     <FlatList
                         data={studentRange}
-                        keyExtractor={(item) => Math.floor(1000000000 + Math.random() * 9000000000).toString()}
+                        keyExtractor={(_, idx) => `range-${idx}`}
                         renderItem={({ item }) => {
+                            const dateLabel = item[0]?.date ?? ''
                             return (
-                                <View style={{
-                                    marginVertical:4
-                                }}>
-                                    <View style={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        gap: 4,
-                                        backgroundColor: "gray",
-                                        padding: 4,
-                                        justifyContent: "center",
-                                        alignItems: "center"
-                                    }}>
-                                        <Text style={styles.label}>Attandance For Date:</Text>
-                                        <Text style={styles.label} >{item[0]?.date}</Text>
+                                <View style={styles.rangeCard}>
+                                    <View style={styles.rangeHeader}>
+                                        <Text style={styles.rangeHeaderLabel}>Attendance —</Text>
+                                        <Text style={styles.rangeHeaderDate}>{dateLabel}</Text>
                                     </View>
-                                    <View>
-                                        {
-                                            item[0].data.map((sub_item,index) => {
-                                                return (
-                                                    <View
-                                                        key={sub_item.roll_no + sub_item.name + sub_item.status}
-                                                        style={{
-                                                            display: "flex",
-                                                            flexDirection: "row",
-                                                            justifyContent: "space-around",
-                                                            backgroundColor: index % 2 === 0 ? "#8f78e4ff" : "#435f2bff"
-                                                        }}
-                                                    >
-                                                        <Text style={{
-                                                            ...styles.label,
-                                                            fontSize:20,
-                                                            color:"#0000",
-                                                            padding:2,
-                                                            height:"auto"
-                                                        }}>{sub_item.roll_no}</Text>
-                                                        <Text style={{
-                                                            ...styles.label,
-                                                            fontSize:20,
-                                                            color:"#0000",
-                                                            padding:2,
-                                                            height:"auto"
-                                                        }} >{sub_item.name}</Text>
-                                                        <Text style={sub_item.status === "Absent" ? styles.absent : styles.present} >{sub_item.status}</Text>
-                                                    </View>
-                                                )
-                                            })
-                                        }
+                                    <View style={styles.rangeBody}>
+                                        {(item[0].data || []).map((sub_item, index) => (
+                                            <View key={`${sub_item.roll_no}-${index}`} style={[styles.rangeRow, index % 2 === 0 ? styles.rangeRowEven : styles.rangeRowOdd]}>
+                                                <View style={styles.rangeStudentInfo}>
+                                                    <Text style={styles.rangeStudentName}>{sub_item.name}</Text>
+                                                    <Text style={styles.rangeStudentRoll}>Roll: {sub_item.roll_no}</Text>
+                                                </View>
+                                                <View style={styles.rangeStudentStatus}>
+                                                    <Text style={[styles.statusBadge, sub_item.status === 'Present' ? styles.present : styles.absent]}>{sub_item.status}</Text>
+                                                </View>
+                                            </View>
+                                        ))}
                                     </View>
                                 </View>
                             )
@@ -609,6 +580,74 @@ const styles = StyleSheet.create({
     },
     status: {
         fontWeight: "600"
+    }
+    ,
+    rangeCard: {
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2
+    },
+    rangeHeader: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginBottom: 8
+    },
+    rangeHeaderLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginRight: 6
+    },
+    rangeHeaderDate: {
+        fontSize: 16,
+        fontWeight: '700'
+    },
+    rangeBody: {
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        marginTop: 8,
+        paddingTop: 8
+    },
+    rangeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+        paddingHorizontal: 6,
+        borderRadius: 6
+    },
+    rangeRowEven: {
+        backgroundColor: 'rgba(240,240,255,0.6)'
+    },
+    rangeRowOdd: {
+        backgroundColor: 'rgba(250,250,250,0.6)'
+    },
+    rangeStudentInfo: {
+        flex: 1,
+        paddingRight: 8
+    },
+    rangeStudentName: {
+        fontSize: 15,
+        fontWeight: '600'
+    },
+    rangeStudentRoll: {
+        color: '#666',
+        marginTop: 2
+    },
+    rangeStudentStatus: {
+        minWidth: 88,
+        alignItems: 'flex-end'
+    },
+    statusBadge: {
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        color: '#fff',
+        fontWeight: '700'
     }
 })
 
