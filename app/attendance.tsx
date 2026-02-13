@@ -1,9 +1,9 @@
 import { useAppSelector } from '@/store/hooks';
 import { useLazyGetClassesQuery } from '@/store/services/api';
+import { getPersistedAuth } from '@/utils/storage';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -58,11 +58,7 @@ export default function AttendanceScreen() {
         let userData: any = user ?? null;
         if (!userData) {
           let raw: string | null = null;
-          if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-            raw = (globalThis as any).localStorage.getItem('auth');
-          } else {
-            raw = await SecureStore.getItemAsync('auth');
-          }
+          raw = await getPersistedAuth();
           if (!raw) return;
           const parsed = JSON.parse(raw);
           userData = parsed.user_data ?? parsed.user ?? null;

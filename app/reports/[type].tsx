@@ -10,12 +10,11 @@ import {
     useLazyGetClassStudentsQuery,
     useLazyGetFullYearAttandanceQuery
 } from "@/store/services/api";
+import { getPersistedAuth } from '@/utils/storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import React, { useCallback, useEffect, useState } from "react";
 import {
     FlatList,
-    Platform,
     StyleSheet,
     Text,
     View
@@ -180,11 +179,7 @@ export default function ClassAttendanceReport() {
             (async () => {
                 try {
                     let raw: any = null
-                    if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-                        raw = (globalThis as any).localStorage.getItem('auth')
-                    } else {
-                        raw = await SecureStore.getItemAsync('auth')
-                    }
+                    raw = await getPersistedAuth()
                     if (!mounted) return
                     if (!raw) {
                         router.replace('/login')
@@ -194,7 +189,7 @@ export default function ClassAttendanceReport() {
                     const parsed = JSON.parse(raw);
                     if (typeof parsed === 'object') {
                         // backend may return user under `user` or `user_data`
-                        const user_data = parsed.user_data ?? parsed.user ?? null;
+                        const user_data = parsed
                         if (user_data) {
                             // set local state for display/use elsewhere
                             const name = `${user_data.firstname ?? user_data.first_name ?? ''} ${user_data.lastname ?? user_data.last_name ?? ''}`.trim()

@@ -11,15 +11,17 @@ import {
 
 import { ThemedText } from '@/components/themed-text'
 import { ThemedView } from '@/components/themed-view'
-import { useAppDispatch } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useUserLoginMutation } from '@/store/services/api'
 import { setAuth } from '@/store/slices/authSlice'
+import { performLogout } from '@/utils/auth'
+import { setPersistedAuth } from '@/utils/storage'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
-import * as SecureStore from 'expo-secure-store'
 
 export default function LoginScreen() {
   const router = useRouter()
   const dispatch = useAppDispatch()
+  const auth = useAppSelector((s) => s.auth)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -56,44 +58,40 @@ export default function LoginScreen() {
         password,
       }).unwrap()
 
-      if (result?.token) {
-        const user =
-          (result as any).user ?? (result as any).user_data ?? null;
+      // normalize user data
+      const user = (result as any).user ?? (result as any).user_data ?? null;
 
-        dispatch(setAuth({ token: result.token, user }));
+      if (!result?.token || !user) {
+        setError('Invalid login response from server.');
+        return;
       }
 
-      // Save auth securely
+      // check allowed user types if available
       try {
-        if (
-          Platform.OS === 'web' &&
-          typeof globalThis !== 'undefined' &&
-          typeof (globalThis as any).localStorage !== 'undefined'
-        ) {
-          (globalThis as any).localStorage.setItem(
-            'auth',
-            JSON.stringify(result.user_data)
-          );
-        } else {
-          if(result?.user_data){
-            if(typeof(result.user_data) === "object" && result.user_data.meta_data){
-              const user_type = result.user_data.meta_data.user_type
-              if(!user_type){
-                alert("Not Allow to login this portal!")
-                return
-              }else{
-                if(user_type === "admin" || user_type === "teacher" || user_type === "owner"){
-                  await SecureStore.setItemAsync('auth', JSON.stringify(result.user_data))
-                  router.replace('/')
-                }else{
-                  alert("You are not allow for login teacher portal!")
-                  return
-                }
-              }
-            }
-          }
+        const meta = user.meta_data ?? user.meta ?? null;
+        const user_type = meta?.user_type ?? null;
+        if (user_type && !['admin', 'teacher', 'owner'].includes(user_type)) {
+          setError('You are not allowed to access the teacher portal.');
+          return;
         }
-      } catch (e) { }
+      } catch (e) {
+        // ignore
+      }
+
+      // save to redux
+      dispatch(setAuth({ token: result.token, user }));
+
+      // persist auth for rehydration (store token + user_data to match older code)
+      const payloadToStore = { token: result.token, user_data: user };
+      try {
+        await setPersistedAuth(JSON.stringify(payloadToStore));
+      } catch (e) {
+        // non-fatal; continue
+        console.warn('Failed to persist auth', e);
+      }
+
+      // finally navigate into app
+      router.replace('/');
 
     } catch (err: any) {
       console.log(err)
@@ -104,7 +102,15 @@ export default function LoginScreen() {
         'Login failed';
       setError(String(msg));
     }
-  };
+  }
+
+  const onLogout = async () => {
+    try {
+      await performLogout(dispatch, router)
+    } catch (e) {
+      console.warn('Logout failed', e)
+    }
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -182,6 +188,16 @@ export default function LoginScreen() {
               </ThemedText>
             )}
           </TouchableOpacity>
+
+          {/* Logout (visible when already signed in) */}
+          {auth?.token ? (
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={onLogout}
+            >
+              <ThemedText style={styles.logoutText}>Log out</ThemedText>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Forgot Password */}
           {/* <View style={styles.row}>
@@ -289,6 +305,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0.5,
+  },
+
+  logoutButton: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#e2e5ea',
+  },
+
+  logoutText: {
+    color: '#0a84ff',
+    fontWeight: '700',
+    fontSize: 14,
   },
 
   row: {

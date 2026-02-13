@@ -1,4 +1,4 @@
-import { production_url, service_path } from '@/utils/apiUtils';
+import { BACKEND_BASE_URL, service_path } from '@/utils/apiUtils';
 import {
     attandanceDataType,
     studentDataType
@@ -18,7 +18,7 @@ type ClassStudentListResponse = {list:studentDataType[]}
 
 export const api = createApi({
     reducerPath: 'api',
-    baseQuery: fetchBaseQuery({ baseUrl: production_url }),
+    baseQuery: fetchBaseQuery({ baseUrl: BACKEND_BASE_URL }),
     tagTypes: ['Classes', 'Students', 'Attendance',"auth"],
     endpoints: (builder) => ({
         getClasses: builder.query<ClassesResponse, {id:number}>({

@@ -6,10 +6,9 @@ import { ThemedView } from '@/components/themed-view';
 import Loader from '@/components/ui/loader';
 import { useAppSelector } from '@/store/hooks';
 import { useLazyGetClassesQuery } from '@/store/services/api';
+import { getPersistedAuth } from '@/utils/storage';
 import { Link } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
 
 export default function ClassesScreen() {
   const user = useAppSelector((s) => s.auth.user);
@@ -23,11 +22,7 @@ export default function ClassesScreen() {
         let userData: any = user ?? null;
         if (!userData) {
           let raw: string | null = null;
-          if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-            raw = (globalThis as any).localStorage.getItem('auth');
-          } else {
-            raw = await SecureStore.getItemAsync('auth');
-          }
+          raw = await getPersistedAuth();
           if (!raw) return;
           const parsed = JSON.parse(raw);
           userData = parsed.user_data ?? parsed.user ?? null;

@@ -1,9 +1,8 @@
+import { getPersistedAuth } from '@/utils/storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { Provider } from 'react-redux';
 
@@ -30,11 +29,7 @@ export default function RootLayout() {
       (async () => {
         try {
           let raw: string | null = null;
-          if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-            raw = (globalThis as any).localStorage.getItem('auth');
-          } else {
-            raw = await SecureStore.getItemAsync('auth');
-          }
+          raw = await getPersistedAuth();
 
           if (!mounted) return;
 
@@ -42,7 +37,7 @@ export default function RootLayout() {
             try {
               const parsed = JSON.parse(raw);
               if (parsed?.token) {
-                const user = parsed.user ?? parsed.user_data ?? null;
+                const user = parsed
                 dispatch(setAuth({ token: parsed.token, user }));
                 // stay on current route (let app continue)
               } else {

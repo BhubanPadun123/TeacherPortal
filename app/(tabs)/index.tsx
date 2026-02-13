@@ -1,8 +1,8 @@
+import { getPersistedAuth } from '@/utils/storage';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import React, { useCallback, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -32,27 +32,22 @@ export default function HomeScreen() {
   const [getClasses, getClassesState] = useLazyGetClassesQuery()
 
 
-
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
       (async () => {
         try {
           let raw: any = null;
-          if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-            raw = (globalThis as any).localStorage.getItem('auth')
-          } else {
-            raw = await SecureStore.getItemAsync('auth')
-          }
+          raw = await getPersistedAuth()
           if (!mounted) return
           if (!raw) {
             router.replace('/login')
             return
           }
-          const parsed = JSON.parse(raw);
+          const parsed = JSON.parse(raw)
           if (typeof parsed === 'object') {
             // backend may return user under `user` or `user_data`
-            const user_data = parsed.user_data ?? parsed.user ?? null;
+            const user_data = parsed
             if (user_data) {
               // set local state for display/use elsewhere
               const name = `${user_data.firstname ?? user_data.first_name ?? ''} ${user_data.lastname ?? user_data.last_name ?? ''}`.trim();
@@ -61,8 +56,7 @@ export default function HomeScreen() {
               const meta_data = user_data.meta_data ?? user_data.meta ?? null;
               const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null
               if (platformId) {
-                setPlatformInfo(Number(platformId));
-                // trigger lazy query to load classes for this platform
+                setPlatformInfo(Number(platformId))
                 getClasses({ id: Number(platformId) })
               }
             }
@@ -70,7 +64,7 @@ export default function HomeScreen() {
         } catch (e) {
           router.replace('/login');
         }
-      })();
+      })()
 
       return () => {
         mounted = false;
