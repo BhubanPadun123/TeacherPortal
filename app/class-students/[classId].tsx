@@ -7,21 +7,16 @@ import { FlatList, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+    ApiError,
     useLazyGetClassStudentsQuery,
     useTakeClassAttandanceMutation
 } from "@/store/services/api";
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { getPersistedAuth } from '@/utils/storage';
+import { getStoredUserData } from '@/utils/storage';
 import * as SecureStore from 'expo-secure-store';
 
 
-const CLASS_META = {
-    'class-101': { title: 'Algebra I' },
-    'class-102': { title: 'Biology' },
-    'class-103': { title: 'English Literature' },
-    'class-104': { title: 'World History' },
-};
 
 export default function ClassStudentsScreen() {
     const router = useRouter()
@@ -31,6 +26,7 @@ export default function ClassStudentsScreen() {
 
     const [getStudent, getStudentState] = useLazyGetClassStudentsQuery()
     const [takeAttandance, takeAttandanceState] = useTakeClassAttandanceMutation()
+
 
     useEffect(() => {
         const clearData = async () => {
@@ -42,8 +38,9 @@ export default function ClassStudentsScreen() {
                 router.back()
             }
             if(takeAttandanceState.isError){
-                console.log(takeAttandanceState.error)
-                alert("Error while update the class attandance,Please try after sometime!")
+                const err = takeAttandanceState.error as ApiError | undefined;
+                const message = err && 'data' in err ? (err.data?.message || err.data?.detail || err.data?.error) : undefined;
+                alert(message || "Error while update the class attandance,Please try after sometime!")
             }
         }
         clearData()
@@ -55,9 +52,8 @@ export default function ClassStudentsScreen() {
             let mounted = true;
             (async () => {
                 try {
-                    let raw: any = null;
-                    // use centralized persisted-auth helper (handles both web and native)
-                    raw = await getPersistedAuth();
+                    // read current user from storage (web/localStorage or native SecureStore)
+                    const userData = await getStoredUserData();
 
                     // read stored attendance history from platform storage
                     const today = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()}`
@@ -86,30 +82,19 @@ export default function ClassStudentsScreen() {
                         }
                     }
                     if (!mounted) return;
-                    if (!raw) {
+                    if (!userData) {
                         router.replace('/login');
                         return;
                     }
 
-                    const parsed = raw ? JSON.parse(raw) : null;
-                    if (parsed && typeof parsed === 'object') {
-                        // backend may return user under `user` or `user_data`
-                        const user_data = parsed
-                        if (user_data) {
-                            // set local state for display/use elsewhere
-                            const name = `${user_data.firstname ?? user_data.first_name ?? ''} ${user_data.lastname ?? user_data.last_name ?? ''}`.trim();
-
-
-                            const meta_data = user_data.meta_data ?? user_data.meta ?? null;
-                            const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null
-                            if (platformId && classId) {
-                                getStudent({
-                                    class_id: Number(classId),
-                                    school_id: Number(platformId)
-                                })
-                                setSchoolid(Number(platformId))
-                            }
-                        }
+                    const meta_data = userData.meta_data ?? userData.meta ?? null;
+                    const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null
+                    if (platformId && classId) {
+                        getStudent({
+                            class_id: Number(classId),
+                            school_id: Number(platformId)
+                        })
+                        setSchoolid(Number(platformId))
                     }
                 } catch (e) {
                     router.replace('/login');
@@ -259,21 +244,17 @@ export default function ClassStudentsScreen() {
                     const status = isPresent?.status
                     const actionLabel = status === 'yes' ? 'Present' : status === 'no' ? 'Absent' : 'Mark'
                     const actionColor = status === 'yes' ? '#2e7d32' : status === 'no' ? '#c62828' : '#757575'
+                    const statusLabel = status === 'yes' ? 'PRESENT' : status === 'no' ? 'ABSENT' : 'UNMARKED'
 
                     return (
                         <ThemedView
                             style={{
                                 ...styles.row,
-                                backgroundColor:
-                                    status === "yes"
-                                        ? "#e8f5e9"
-                                        : status === "no"
-                                            ? "#ffebee"
-                                            : "#f5f5f5"
+                                borderColor:"#73bd55ff"
                             }}
                         >
                             <ThemedView style={styles.avatarWrap}>
-                                <ThemedView style={[styles.avatar, { backgroundColor: '#e0e7ff' }]}>
+                                <ThemedView style={[styles.avatar, { backgroundColor: "#a59a9aff" }]}>
                                     <ThemedText type="defaultSemiBold">{initials}</ThemedText>
                                 </ThemedView>
                             </ThemedView>
@@ -282,7 +263,12 @@ export default function ClassStudentsScreen() {
                                 <ThemedText type="defaultSemiBold" style={styles.nameText} numberOfLines={2}>
                                     {item.name}
                                 </ThemedText>
-                                <ThemedText style={styles.rollText}>Roll No: {item.roll_no}</ThemedText>
+                                <ThemedView style={styles.metaRow}>
+                                    <ThemedText style={styles.rollText}>Roll No: {item.roll_no}</ThemedText>
+                                    <ThemedView style={[styles.statusPill, status === 'yes' ? styles.statusPillPresent : status === 'no' ? styles.statusPillAbsent : styles.statusPillNeutral]}>
+                                        <ThemedText style={styles.statusPillText}>{statusLabel}</ThemedText>
+                                    </ThemedView>
+                                </ThemedView>
                             </ThemedView>
 
                             <ThemedView style={styles.actionContainer}>
@@ -291,6 +277,7 @@ export default function ClassStudentsScreen() {
                                         <ThemedText style={styles.btnText}>{actionLabel}</ThemedText>
                                     </ThemedView>
                                 </TouchableOpacity>
+                                <ThemedText style={styles.helperText}>Tap to cycle</ThemedText>
                             </ThemedView>
                         </ThemedView>
                     )
@@ -339,10 +326,11 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 12,
         marginBottom: 12,
-        backgroundColor: "rgba(0,0,0,0.04)",
+        backgroundColor: "#3b8e9cff",
         elevation: 2,
         gap: 12,
-        alignItems: 'center'
+        alignItems: 'center',
+        borderWidth: 1
     },
 
     leftColumn: {
@@ -350,6 +338,13 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'center',
         paddingRight: 12
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 6,
+        flexWrap: 'wrap'
     },
     avatarWrap: {
         width: 56,
@@ -380,8 +375,12 @@ const styles = StyleSheet.create({
         flexDirection: "column",
         gap: 8,
         justifyContent: "center",
-        alignItems: "flex-end",
-        marginLeft: 12
+        alignItems: "center",
+        padding: 12
+    },
+    helperText: {
+        fontSize: 11,
+        color: '#777'
     },
 
     buttonWrapper: {
@@ -425,6 +424,25 @@ const styles = StyleSheet.create({
         minWidth: 80,
         alignItems: 'center',
         justifyContent: 'center'
+    },
+    statusPill: {
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 12
+    },
+    statusPillText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#111'
+    },
+    statusPillPresent: {
+        backgroundColor: 'rgba(46,125,50,0.14)'
+    },
+    statusPillAbsent: {
+        backgroundColor: 'rgba(198,40,40,0.14)'
+    },
+    statusPillNeutral: {
+        backgroundColor: 'rgba(117,117,117,0.14)'
     },
     footer: {
         position: "absolute",

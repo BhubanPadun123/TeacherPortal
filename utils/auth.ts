@@ -1,4 +1,5 @@
 import { clearAuth } from '@/store/slices/authSlice';
+import { removeStoredAuthToken, removeStoredUserData } from '@/utils/storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
@@ -16,6 +17,10 @@ export async function clearPersistedAuth(): Promise<void> {
     } else {
       await SecureStore.deleteItemAsync('auth');
     }
+
+    // also clear new token/user_data keys
+    await removeStoredAuthToken();
+    await removeStoredUserData();
   } catch (e) {
     // non-fatal — log for debugging
     // eslint-disable-next-line no-console

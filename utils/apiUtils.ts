@@ -2,7 +2,7 @@
 export let LOCAL_BACKEND = "http://192.168.1.9:8000";
 
 // Production backend
-export let PRODUCTION_BACKEND = "http://210.79.129.8";
+export let PRODUCTION_BACKEND = "https://bhuban.shop";
 
 // Export a single BACKEND_BASE_URL that selects the proper URL at runtime.
 // In React Native / Expo, prefer using NODE_ENV or the __DEV__ global.

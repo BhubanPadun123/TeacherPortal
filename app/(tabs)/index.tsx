@@ -1,8 +1,8 @@
-import { getPersistedAuth } from '@/utils/storage';
+import { getStoredUserData } from '@/utils/storage';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
@@ -56,12 +56,13 @@ function ClassCard({ c, idx, onOpen }: { c: any; idx: number; onOpen: () => void
         onPressOut={onPressOut}
       >
         <LinearGradient colors={colors} style={styles.classCardGradient}>
-          <View style={styles.classCardContent}>
-            <ThemedText type="defaultSemiBold" style={styles.classTitle}>{c?.class_name}</ThemedText>
-          </View>
-          <View style={styles.cardFooterRow}>
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity style={styles.openButton} onPress={onOpen}>
+          <View style={styles.classCardInner}>
+            <View style={styles.classAccent} />
+            <View style={styles.classTextCol}>
+              <ThemedText type="defaultSemiBold" style={styles.classTitle}>{c?.class_name}</ThemedText>
+              <ThemedText style={styles.classSubtitle}>Manage attendance & reports</ThemedText>
+            </View>
+            <TouchableOpacity style={styles.cardAction} onPress={onOpen}>
               <ThemedText type="defaultSemiBold" style={styles.openText}>Open</ThemedText>
             </TouchableOpacity>
           </View>
@@ -75,40 +76,38 @@ function ClassCard({ c, idx, onOpen }: { c: any; idx: number; onOpen: () => void
 
 export default function HomeScreen() {
   const router = useRouter()
-  const [teacherInfo, setTeacherInfo] = useState<string>("")
-  const [platform_id, setPlatformInfo] = useState<number>()
-
   const [getClasses, getClassesState] = useLazyGetClassesQuery()
+  const lastPlatformId = useRef<number | null>(null)
 
+  const user = useAppSelector((s) => s.auth.user);
+  const displayName = useMemo(() => {
+    if (!user) return 'Teacher';
+    return `${(user.firstname ?? user.first_name ?? '').toString()} ${(user.lastname ?? user.last_name ?? '').toString()}`.trim() || 'Teacher';
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
       (async () => {
         try {
-          let raw: any = null;
-          raw = await getPersistedAuth()
-          if (!mounted) return
-          if (!raw) {
-            router.replace('/login')
-            return
+          const userData = await getStoredUserData();
+          if (!mounted) return;
+          if (!userData) {
+            router.replace('/login');
+            return;
           }
-          const parsed = JSON.parse(raw)
-          if (typeof parsed === 'object') {
-            // backend may return user under `user` or `user_data`
-            const user_data = parsed
-            if (user_data) {
-              // set local state for display/use elsewhere
-              const name = `${user_data.firstname ?? user_data.first_name ?? ''} ${user_data.lastname ?? user_data.last_name ?? ''}`.trim();
-              if (name) setTeacherInfo(name)
 
-              const meta_data = user_data.meta_data ?? user_data.meta ?? null;
-              const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null
-              if (platformId) {
-                setPlatformInfo(Number(platformId))
-                getClasses({ id: Number(platformId) })
-              }
+          const meta_data = userData?.meta_data ?? userData?.meta_data ?? null;
+          const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null;
+          console.log("User data on home screen:", userData);
+          if (platformId) {
+            const pid = Number(platformId);
+            if (lastPlatformId.current !== pid) {
+              lastPlatformId.current = pid;
+              getClasses({ id: pid });
             }
+          }else{
+            router.replace('/login');
           }
         } catch (e) {
           router.replace('/login');
@@ -120,12 +119,6 @@ export default function HomeScreen() {
       };
     }, [router, getClasses])
   );
-
-
-  const user = useAppSelector((s) => s.auth.user);
-  const displayName = user
-    ? `${(user.firstname ?? user.first_name ?? '').toString()} ${(user.lastname ?? user.last_name ?? '').toString()}`.trim()
-    : 'Teacher';
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#E8F6FF', dark: '#102027' }}
@@ -244,7 +237,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(43, 53, 116, 0.9)',
     marginRight: 12,
     shadowColor: '#000',
     shadowOpacity: 0.06,
@@ -300,8 +293,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     minHeight: 120,
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'center',
+    alignItems: 'stretch',
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 10,
@@ -319,7 +312,32 @@ const styles = StyleSheet.create({
   },
   classTitle: {
     fontSize: 18,
-    textAlign: 'center'
+    textAlign: 'left'
+  },
+  classSubtitle: {
+    color: '#666',
+    marginTop: 4,
+    fontSize: 12
+  },
+  classCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10
+  },
+  classAccent: {
+    width: 6,
+    height: 48,
+    borderRadius: 3,
+    backgroundColor: 'rgba(10,132,255,0.5)'
+  },
+  classTextCol: {
+    flex: 1
+  },
+  cardAction: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.85)'
   },
   classCardFooter: {
     flexDirection: 'row',

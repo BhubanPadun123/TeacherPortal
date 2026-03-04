@@ -1,6 +1,6 @@
 import { useAppSelector } from '@/store/hooks';
 import { useLazyGetClassesQuery } from '@/store/services/api';
-import { getPersistedAuth } from '@/utils/storage';
+import { getStoredUserData } from '@/utils/storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -11,24 +11,6 @@ import { ThemedView } from '@/components/themed-view';
 
 // Example student rosters per class
 const CLASS_STUDENTS: Record<string, { id: string; name: string }[]> = {
-  'class-101': [
-    { id: 's1', name: 'Aiden Carter' },
-    { id: 's2', name: 'Bella Nguyen' },
-    { id: 's5', name: 'Ethan Brooks' },
-  ],
-  'class-102': [
-    { id: 's3', name: 'Carlos Ruiz' },
-    { id: 's4', name: 'Diana Patel' },
-    { id: 's6', name: 'Fiona Lee' },
-  ],
-  'class-103': [
-    { id: 's7', name: 'George Kim' },
-    { id: 's8', name: 'Hannah Park' },
-  ],
-  'class-104': [
-    { id: 's9', name: 'Isla Romero' },
-    { id: 's10', name: 'Jack Wilson' },
-  ],
 };
 
 // classes will be fetched from the API
@@ -58,13 +40,11 @@ export default function AttendanceScreen() {
       try {
         let userData: any = user ?? null;
         if (!userData) {
-          let raw: string | null = null;
-          raw = await getPersistedAuth();
-          if (!raw) return;
-          const parsed = JSON.parse(raw);
-          userData = parsed
+          userData = await getStoredUserData();
+          if (!userData) return;
         }
         if (!mounted || !userData) return;
+
         const meta = userData.meta_data ?? userData.meta ?? null;
         const platformId = meta?.user_platform ?? meta?.platform_id ?? null;
         if (platformId) {
@@ -102,9 +82,12 @@ export default function AttendanceScreen() {
                 style={styles.classCardGradient}
               >
                 <ThemedView style={styles.cardInnerRow}>
+                  {/* <ThemedView style={styles.cardAccent} /> */}
                   <ThemedView style={styles.cardTextWrap}>
                     <ThemedText type="defaultSemiBold" style={styles.classTitle}>{item.class_name ?? item.name}</ThemedText>
-                    <ThemedText style={styles.smallText}>{(item.meta_data?.subjects?.length ?? 0) > 0 ? `${item.meta_data.subjects.length} subjects` : ''}</ThemedText>
+                    <ThemedView style={styles.metaRow}>
+                      <ThemedText style={styles.smallText}>Grade Class</ThemedText>
+                    </ThemedView>
                   </ThemedView>
 
                   <TouchableOpacity style={styles.openButton} onPress={() => router.push(("/class-students/" + item.id) as any)}>
@@ -163,9 +146,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   cardInnerRow: {
-    flexDirection: 'row',
+    flexDirection: "column",
     alignItems: 'center',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  cardAccent: {
+    width: 6,
+    height: 44,
+    borderRadius: 3,
+    backgroundColor: 'rgba(10,132,255,0.45)',
+    marginRight: 10
   },
   cardTextWrap: {
     flex: 1,
@@ -173,6 +164,23 @@ const styles = StyleSheet.create({
   },
   classTitle: {
     fontSize: 18
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 8
+  },
+  subjectPill: {
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(10,132,255,0.12)'
+  },
+  subjectPillText: {
+    fontSize: 11,
+    color: '#0666d6',
+    fontWeight: '700'
   },
   openButton: {
     paddingVertical: 8,

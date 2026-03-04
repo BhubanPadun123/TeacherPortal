@@ -1,4 +1,4 @@
-import { getPersistedAuth } from '@/utils/storage';
+import { getStoredAuthToken, getStoredUserData } from '@/utils/storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -28,27 +28,16 @@ export default function RootLayout() {
       let mounted = true;
       (async () => {
         try {
-          let raw: string | null = null;
-          raw = await getPersistedAuth();
+          const token = await getStoredAuthToken();
+          const user = await getStoredUserData();
 
           if (!mounted) return;
 
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed?.token) {
-                const user = parsed
-                dispatch(setAuth({ token: parsed.token, user }));
-                // stay on current route (let app continue)
-              } else {
-                // no token -> go to login
-                router.replace('/login');
-              }
-            } catch (e) {
-              router.replace('/login');
-            }
+          if (token && user) {
+            dispatch(setAuth({ token, user }));
+            // stay on current route (let app continue)
           } else {
-            // nothing stored -> go to login
+            // no token/user -> go to login
             router.replace('/login');
           }
         } catch (e) {

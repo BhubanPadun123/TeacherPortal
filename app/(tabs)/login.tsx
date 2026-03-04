@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   TextInput,
@@ -15,7 +16,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useUserLoginMutation } from '@/store/services/api'
 import { setAuth } from '@/store/slices/authSlice'
 import { performLogout } from '@/utils/auth'
-import { setPersistedAuth } from '@/utils/storage'
+import { setStoredAuthToken, setStoredUserData } from '@/utils/storage'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 
 export default function LoginScreen() {
@@ -81,16 +82,14 @@ export default function LoginScreen() {
       // save to redux
       dispatch(setAuth({ token: result.token, user }));
 
-      // persist auth for rehydration (store token + user_data to match older code)
-      const payloadToStore = { token: result.token, user_data: user };
+      // persist auth for rehydration (new token/user_data keys)
       try {
-        await setPersistedAuth(JSON.stringify(payloadToStore));
+        await setStoredAuthToken(result.token);
+        await setStoredUserData(user);
       } catch (e) {
         // non-fatal; continue
         console.warn('Failed to persist auth', e);
       }
-
-      // finally navigate into app
       router.replace('/');
 
     } catch (err: any) {
@@ -113,94 +112,98 @@ export default function LoginScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.card}>
-        <FontAwesome name="user-circle" size={54} color="#0a84ff" />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : "height"}
+    >
+      <ThemedView style={styles.container}>
+        <View style={styles.card}>
+          <FontAwesome name="user-circle" size={54} color="#0a84ff" />
 
-        <ThemedText type="title" style={styles.title}>
-          Welcome back
-        </ThemedText>
+          <ThemedText type="title" style={styles.title}>
+            Welcome back
+          </ThemedText>
 
-        <ThemedText style={styles.subtitle}>
-          Teacher Portal
-        </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Teacher Portal
+          </ThemedText>
 
-        <View style={styles.form}>
-          {/* Email */}
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor="#888"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-            importantForAutofill="yes"
-            textContentType={Platform.select({
-              ios: 'username',
-              android: 'emailAddress',
-            })}
-          />
-
-          {/* Password with show/hide */}
-          <View style={styles.passwordWrapper}>
+          <View style={styles.form}>
+            {/* Email */}
             <TextInput
-              placeholder="Password"
+              placeholder="Email"
               placeholderTextColor="#888"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              style={styles.passwordInput}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
               importantForAutofill="yes"
               textContentType={Platform.select({
-                ios: 'password',
-                android: 'password',
+                ios: 'username',
+                android: 'emailAddress',
               })}
             />
 
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <FontAwesome
-                name={showPassword ? 'eye' : 'eye-slash'}
-                size={18}
-                color="#555"
+            {/* Password with show/hide */}
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#888"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                style={styles.passwordInput}
+                importantForAutofill="yes"
+                textContentType={Platform.select({
+                  ios: 'password',
+                  android: 'password',
+                })}
               />
-            </TouchableOpacity>
-          </View>
 
-          {error ? (
-            <ThemedText style={styles.error}>{error}</ThemedText>
-          ) : null}
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <FontAwesome
+                  name={showPassword ? 'eye' : 'eye-slash'}
+                  size={18}
+                  color="#555"
+                />
+              </TouchableOpacity>
+            </View>
 
-          {/* Login Button */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={onSignIn}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText style={styles.buttonText}>
-                Sign in
-              </ThemedText>
-            )}
-          </TouchableOpacity>
+            {error ? (
+              <ThemedText style={styles.error}>{error}</ThemedText>
+            ) : null}
 
-          {/* Logout (visible when already signed in) */}
-          {auth?.token ? (
+            {/* Login Button */}
             <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={onLogout}
+              style={styles.button}
+              onPress={onSignIn}
+              disabled={isLoading}
             >
-              <ThemedText style={styles.logoutText}>Log out</ThemedText>
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <ThemedText style={styles.buttonText}>
+                  Sign in
+                </ThemedText>
+              )}
             </TouchableOpacity>
-          ) : null}
 
-          {/* Forgot Password */}
-          {/* <View style={styles.row}>
+            {/* Logout (visible when already signed in) */}
+            {auth?.token ? (
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={onLogout}
+              >
+                <ThemedText style={styles.logoutText}>Log out</ThemedText>
+              </TouchableOpacity>
+            ) : null}
+
+            {/* Forgot Password */}
+            {/* <View style={styles.row}>
             <Link href={'/forgot-password' as any}>
               <Link.Trigger>
                 <ThemedText type="link">
@@ -209,9 +212,10 @@ export default function LoginScreen() {
               </Link.Trigger>
             </Link>
           </View> */}
+          </View>
         </View>
-      </View>
-    </ThemedView>
+      </ThemedView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -220,7 +224,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 18,
-    backgroundColor: '#f5f7fb',
+    backgroundColor: '#4269b6ff',
   },
 
   card: {
@@ -229,7 +233,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 18,
     padding: 22,
-    backgroundColor: '#fff',
+    backgroundColor: '#807676ff',
     elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.1,

@@ -10,7 +10,7 @@ import {
     useLazyGetClassStudentsQuery,
     useLazyGetFullYearAttandanceQuery
 } from "@/store/services/api";
-import { getPersistedAuth } from '@/utils/storage';
+import { getStoredUserData } from '@/utils/storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -178,28 +178,17 @@ export default function ClassAttendanceReport() {
             let mounted = true;
             (async () => {
                 try {
-                    let raw: any = null
-                    raw = await getPersistedAuth()
+                    const userData = await getStoredUserData();
                     if (!mounted) return
-                    if (!raw) {
+                    if (!userData) {
                         router.replace('/login')
                         return
                     }
 
-                    const parsed = JSON.parse(raw);
-                    if (typeof parsed === 'object') {
-                        // backend may return user under `user` or `user_data`
-                        const user_data = parsed
-                        if (user_data) {
-                            // set local state for display/use elsewhere
-                            const name = `${user_data.firstname ?? user_data.first_name ?? ''} ${user_data.lastname ?? user_data.last_name ?? ''}`.trim()
-
-                            const meta_data = user_data.meta_data ?? user_data.meta ?? null;
-                            const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null
-                            if (platformId) {
-                                getClasses({ id: Number(platformId) })
-                            }
-                        }
+                    const meta_data = userData.meta_data ?? userData.meta ?? null;
+                    const platformId = meta_data?.user_platform ?? meta_data?.platform_id ?? null
+                    if (platformId) {
+                        getClasses({ id: Number(platformId) })
                     }
                 } catch (e) {
                     router.replace('/login');

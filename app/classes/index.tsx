@@ -6,7 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import Loader from '@/components/ui/loader';
 import { useAppSelector } from '@/store/hooks';
 import { useLazyGetClassesQuery } from '@/store/services/api';
-import { getPersistedAuth } from '@/utils/storage';
+import { getStoredUserData } from '@/utils/storage';
 import { Link } from 'expo-router';
 import React, { useEffect } from 'react';
 
@@ -21,11 +21,8 @@ export default function ClassesScreen() {
         // Prefer Redux user (rehydrated), otherwise read from storage
         let userData: any = user ?? null;
         if (!userData) {
-          let raw: string | null = null;
-          raw = await getPersistedAuth();
-          if (!raw) return;
-          const parsed = JSON.parse(raw);
-          userData = parsed.user_data ?? parsed.user ?? null;
+          userData = await getStoredUserData();
+          if (!userData) return;
         }
 
         if (!mounted || !userData) return;
